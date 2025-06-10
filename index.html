@@ -1,0 +1,1140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vipassana Pagoda Cell Allocator</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Helvetica, Arial, sans-serif;
+            background: #e0e7ff;
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 20px auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 2rem;
+            color: #333;
+        }
+
+        .header h1 {
+            font-size: 2rem;
+            margin-bottom: 8px;
+        }
+
+        .header p {
+            font-size: 1rem;
+            color: #666;
+        }
+
+        .course-dates-section {
+            background: #ffffff;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .course-dates-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .course-dates-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .course-dates-label {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .course-dates-input {
+            padding: 8px;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            font-size: 14px;
+            transition: border-color 0.2s ease;
+        }
+
+        .course-dates-input:focus {
+            outline: none;
+            border-color: #4b5eAa;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            align-items: start;
+        }
+
+        .section {
+            background: #ffffff;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .section-title {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+            color: #333;
+            border-bottom: 2px solid #4b5eAa;
+            padding-bottom: 5px;
+        }
+
+        .config-cells-section {
+            margin-bottom: 20px;
+            background: #f9fafb;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 15px;
+        }
+
+        .config-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 15px;
+        }
+
+        .config-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .config-label {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .config-input {
+            padding: 8px;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            font-size: 14px;
+            transition: border-color 0.2s ease;
+        }
+
+        .config-input:focus {
+            outline: none;
+            border-color: #4b5eAa;
+        }
+
+        .config-status {
+            margin-top: 10px;
+            padding: 8px;
+            border-radius: 4px;
+            font-weight: 500;
+            text-align: center;
+            color: #333;
+        }
+
+        .cell-grid {
+            max-height: 300px;
+            overflow-y: auto;
+            margin-top: 15px;
+        }
+
+        .cell-category {
+            margin-bottom: 25px;
+        }
+
+        .category-title {
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #333;
+            font-size: 0.95rem;
+        }
+
+        .cells {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(50px, 1fr));
+            gap: 6px;
+            margin-bottom: 10px;
+        }
+
+        .cell {
+            background: #e5e7eb;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            padding: 6px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-weight: 500;
+            font-size: 12px;
+            user-select: none;
+            min-height: 40px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            white-space: nowrap;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .cell:hover {
+            background: #dbeafe;
+            border-color: #4b5eAa;
+            transform: translateY(-1px);
+        }
+
+        .cell.unavailable {
+            background: #fee2e2;
+            border-color: #ef4444;
+            color: #991b1b;
+            position: relative;
+        }
+
+        .cell.unavailable::after {
+            content: '✖';
+            position: absolute;
+            font-size: 18px;
+            color: #991b1b;
+            opacity: 0.7;
+        }
+
+        .cell.allocated {
+            background: #d1fae5;
+            border-color: #10b981;
+            color: #065f46;
+        }
+
+        .file-uploads-section {
+            margin-bottom: 20px;
+            background: #f9fafb;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 15px;
+        }
+
+        .upload-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .upload-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .upload-label {
+            margin-bottom: 10px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .file-input {
+            width: 100%;
+            padding: 10px;
+            border: 1px dashed #d1d5db;
+            border-radius: 4px;
+            background: #ffffff;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 14px;
+            text-align: center;
+        }
+
+        .file-input:hover {
+            border-color: #4b5eAa;
+            background: #f9fafb;
+        }
+
+        .report-section {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .download-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 10px;
+            justify-content: center;
+        }
+
+        .report-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 12px;
+            background: #ffffff;
+            border-radius: 4px;
+            overflow: hidden;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+        }
+
+        .report-table th,
+        .report-table td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .report-table th {
+            background: #4b5eAa;
+            color: #ffffff;
+            font-weight: 500;
+        }
+
+        .report-table tr:hover {
+            background: #f9fafb;
+        }
+
+        .download-btn {
+            background: #4b5eAa;
+            color: #ffffff;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 500;
+            font-size: 13px;
+            transition: all 0.2s ease;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            min-width: 140px;
+            justify-content: center;
+        }
+
+        .download-btn:hover {
+            background: #5a71d6;
+            transform: translateY(-1px);
+        }
+
+        .download-btn:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .status-message {
+            padding: 8px;
+            border-radius: 4px;
+            margin-bottom: 12px;
+            font-weight: 500;
+        }
+
+        .status-success {
+            background: #d1fae5;
+            color: #065f46;
+            border: 1px solid #10b981;
+        }
+
+        .status-error {
+            background: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #ef4444;
+        }
+
+        .allocation-summary {
+            background: #ffffff;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .summary-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .summary-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 6px 10px;
+            background: #f9fafb;
+            border-radius: 4px;
+            border-left: 3px solid #4b5eAa;
+        }
+
+        .summary-item span {
+            color: #333;
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+
+        .summary-item strong {
+            color: #333;
+            font-size: 0.95rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>☸️ Vipassana Pagoda Cell Allocator</h1>
+            <p>Systematic allocation of pagoda cells for meditation courses</p>
+        </div>
+
+        <div class="course-dates-section">
+            <div class="course-dates-grid">
+                <div class="course-dates-group">
+                    <label class="course-dates-label">Course Start Date</label>
+                    <input type="date" class="course-dates-input" id="course-start-date">
+                </div>
+                <div class="course-dates-group">
+                    <label class="course-dates-label">Course End Date</label>
+                    <input type="date" class="course-dates-input" id="course-end-date">
+                </div>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <!-- Male Section -->
+            <div class="section">
+                <h2 class="section-title">👨 Male Students</h2>
+                
+                <div class="config-cells-section">
+                    <div class="config-grid">
+                        <div class="config-group">
+                            <label class="config-label">Old Students Cell Count (ATM)</label>
+                            <input type="number" class="config-input" id="male-old-count" value="18" min="1" max="50">
+                        </div>
+                        <div class="config-group">
+                            <label class="config-label">New Students Cell Count</label>
+                            <input type="number" class="config-input" id="male-new-count" value="120" min="1" max="200">
+                        </div>
+                    </div>
+                    <div id="male-config-status" class="config-status"></div>
+                    
+                    <div class="cell-grid">
+                        <div class="cell-category">
+                            <div class="category-title" id="male-old-title">Old Students (ATM-1 to ATM-18)</div>
+                            <div class="cells" id="male-old-cells"></div>
+                        </div>
+                        <div class="cell-category">
+                            <div class="category-title" id="male-new-title">New Students (1 to 120)</div>
+                            <div class="cells" id="male-new-cells"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="file-uploads-section">
+                    <div class="upload-grid">
+                        <div class="upload-group">
+                            <label class="upload-label">Old Students List (CSV)</label>
+                            <input type="file" class="file-input" id="male-old-upload" accept=".csv">
+                        </div>
+                        <div class="upload-group">
+                            <label class="upload-label">New Students List (CSV)</label>
+                            <input type="file" class="file-input" id="male-new-upload" accept=".csv">
+                        </div>
+                    </div>
+                </div>
+
+                <div id="male-status"></div>
+                <div id="male-summary"></div>
+
+                <div class="report-section">
+                    <div id="male-report"></div>
+                    <div class="download-buttons">
+                        <button class="download-btn" id="male-old-download" disabled onclick="downloadPDF('male', 'old')">
+                            <span>📄</span> Old Students Cell List
+                        </button>
+                        <button class="download-btn" id="male-new-download" disabled onclick="downloadPDF('male', 'new')">
+                            <span>📄</span> New Students Cell List
+                        </button>
+                        <button class="download-btn" id="male-consolidated-download" disabled onclick="downloadPDF('male', 'consolidated')">
+                            <span>📄</span> Consolidated Cell List
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Female Section -->
+            <div class="section">
+                <h2 class="section-title">👩 Female Students</h2>
+                
+                <div class="config-cells-section">
+                    <div class="config-grid">
+                        <div class="config-group">
+                            <label class="config-label">Old Students Cell Count (ATF)</label>
+                            <input type="number" class="config-input" id="female-old-count" value="12" min="1" max="50">
+                        </div>
+                        <div class="config-group">
+                            <label class="config-label">New Students Cell Count</label>
+                            <input type="number" class="config-input" id="female-new-count" value="80" min="1" max="200">
+                        </div>
+                    </div>
+                    <div id="female-config-status" class="config-status"></div>
+                    
+                    <div class="cell-grid">
+                        <div class="cell-category">
+                            <div class="category-title" id="female-old-title">Old Students (ATF-1 to ATF-12)</div>
+                            <div class="cells" id="female-old-cells"></div>
+                        </div>
+                        <div class="cell-category">
+                            <div class="category-title" id="female-new-title">New Students (1 to 80)</div>
+                            <div class="cells" id="female-new-cells"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="file-uploads-section">
+                    <div class="upload-grid">
+                        <div class="upload-group">
+                            <label class="upload-label">Old Students List (CSV)</label>
+                            <input type="file" class="file-input" id="female-old-upload" accept=".csv">
+                        </div>
+                        <div class="upload-group">
+                            <label class="upload-label">New Students List (CSV)</label>
+                            <input type="file" class="file-input" id="female-new-upload" accept=".csv">
+                        </div>
+                    </div>
+                </div>
+
+                <div id="female-status"></div>
+                <div id="female-summary"></div>
+
+                <div class="report-section">
+                    <div id="female-report"></div>
+                    <div class="download-buttons">
+                        <button class="download-btn" id="female-old-download" disabled onclick="downloadPDF('female', 'old')">
+                            <span>📄</span> Old Students Cell List
+                        </button>
+                        <button class="download-btn" id="female-new-download" disabled onclick="downloadPDF('female', 'new')">
+                            <span>📄</span> New Students Cell List
+                        </button>
+                        <button class="download-btn" id="female-consolidated-download" disabled onclick="downloadPDF('female', 'consolidated')">
+                            <span>📄</span> Consolidated Cell List
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global state
+        const state = {
+            male: {
+                unavailableCells: new Set(['ATM-1', 'ATM-2', 'ATM-3', 'ATM-4', 'ATM-5']),
+                oldStudents: [],
+                newStudents: [],
+                allocations: [],
+                config: {
+                    oldCount: 18,
+                    newCount: 120
+                }
+            },
+            female: {
+                unavailableCells: new Set(['ATF-1', 'ATF-2', 'ATF-3']),
+                oldStudents: [],
+                newStudents: [],
+                allocations: [],
+                config: {
+                    oldCount: 12,
+                    newCount: 80
+                }
+            }
+        };
+
+        // Apply configuration and regenerate cells
+        function applyConfiguration(section) {
+            const oldCount = parseInt(document.getElementById(`${section}-old-count`).value) || (section === 'male' ? 18 : 12);
+            const newCount = parseInt(document.getElementById(`${section}-new-count`).value) || (section === 'male' ? 120 : 80);
+            
+            // Validate input
+            if (oldCount < 1 || oldCount > 50) {
+                showConfigStatus(section, 'Old students cell count must be between 1 and 50', 'error');
+                return;
+            }
+            
+            if (newCount < 1 || newCount > 200) {
+                showConfigStatus(section, 'New students cell count must be between 1 and 200', 'error');
+                return;
+            }
+            
+            // Update configuration
+            state[section].config.oldCount = oldCount;
+            state[section].config.newCount = newCount;
+            
+            // Clear existing unavailable cells that are now out of range
+            const prefix = section === 'male' ? 'ATM' : 'ATF';
+            const newUnavailableCells = new Set();
+            
+            state[section].unavailableCells.forEach(cellId => {
+                if (cellId.startsWith(prefix)) {
+                    const cellNum = parseInt(cellId.split('-')[1]);
+                    if (cellNum <= oldCount) {
+                        newUnavailableCells.add(cellId);
+                    }
+                } else {
+                    const cellNum = parseInt(cellId);
+                    if (cellNum <= newCount) {
+                        newUnavailableCells.add(cellId);
+                    }
+                }
+            });
+            
+            // Ensure default unavailable cells are included if within range
+            const defaultUnavailableCount = section === 'male' ? 5 : 3;
+            for (let i = 1; i <= defaultUnavailableCount; i++) {
+                const cellId = `${prefix}-${i}`;
+                if (i <= oldCount) {
+                    newUnavailableCells.add(cellId);
+                }
+            }
+            
+            state[section].unavailableCells = newUnavailableCells;
+            
+            // Regenerate cells
+            generateCells(section);
+            
+            // Update titles
+            updateCategoryTitles(section);
+            
+            // Reallocate if students are loaded
+            if (state[section].oldStudents.length > 0 || state[section].newStudents.length > 0) {
+                allocateCells(section);
+            }
+            
+            showConfigStatus(section, `Configuration applied: ${oldCount} old cells, ${newCount} new cells`, 'success');
+        }
+
+        // Update category titles based on configuration
+        function updateCategoryTitles(section) {
+            const prefix = section === 'male' ? 'ATM' : 'ATF';
+            const oldCount = state[section].config.oldCount;
+            const newCount = state[section].config.newCount;
+            
+            document.getElementById(`${section}-old-title`).textContent = 
+                `Old Students (${prefix}-1 to ${prefix}-${oldCount})`;
+            document.getElementById(`${section}-new-title`).textContent = 
+                `New Students (1 to ${newCount})`;
+        }
+
+        // Generate cells based on configuration
+        function generateCells(section) {
+            const prefix = section === 'male' ? 'ATM' : 'ATF';
+            const oldCount = state[section].config.oldCount;
+            const newCount = state[section].config.newCount;
+            
+            // Clear existing cells
+            const oldContainer = document.getElementById(`${section}-old-cells`);
+            const newContainer = document.getElementById(`${section}-new-cells`);
+            oldContainer.innerHTML = '';
+            newContainer.innerHTML = '';
+            
+            // Generate old student cells
+            for (let i = 1; i <= oldCount; i++) {
+                const cell = createCell(`${prefix}-${i}`, section);
+                oldContainer.appendChild(cell);
+            }
+            
+            // Generate new student cells
+            for (let i = 1; i <= newCount; i++) {
+                const cell = createCell(i.toString(), section);
+                newContainer.appendChild(cell);
+            }
+            
+            // Restore unavailable status
+            state[section].unavailableCells.forEach(cellId => {
+                const cell = document.querySelector(`[data-cell-id="${cellId}"][data-section="${section}"]`);
+                if (cell) {
+                    cell.classList.add('unavailable');
+                }
+            });
+        }
+
+        // Initialize cells with default configuration
+        function initializeCells() {
+            generateCells('male');
+            generateCells('female');
+            updateCategoryTitles('male');
+            updateCategoryTitles('female');
+        }
+
+        function createCell(cellId, section) {
+            const cell = document.createElement('div');
+            cell.className = 'cell';
+            cell.textContent = cellId;
+            cell.dataset.cellId = cellId;
+            cell.dataset.section = section;
+
+            // Click handler for toggling availability
+            cell.addEventListener('click', (e) => {
+                e.preventDefault();
+                toggleCellAvailability(cell, section);
+            });
+
+            // Prevent default context menu
+            cell.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+            });
+
+            return cell;
+        }
+
+        function toggleCellAvailability(cell, section) {
+            const cellId = cell.dataset.cellId;
+            const sectionState = state[section];
+
+            if (sectionState.unavailableCells.has(cellId)) {
+                sectionState.unavailableCells.delete(cellId);
+                cell.classList.remove('unavailable');
+            } else {
+                sectionState.unavailableCells.add(cellId);
+                cell.classList.add('unavailable');
+            }
+
+            // Reallocate if students are loaded
+            if (state[section].oldStudents.length > 0 || state[section].newStudents.length > 0) {
+                allocateCells(section);
+            }
+        }
+
+        // File upload handlers
+        function setupFileUploads() {
+            document.getElementById('male-old-upload').addEventListener('change', (e) => {
+                handleFileUpload(e.target.files[0], 'male', 'old');
+            });
+
+            document.getElementById('male-new-upload').addEventListener('change', (e) => {
+                handleFileUpload(e.target.files[0], 'male', 'new');
+            });
+
+            document.getElementById('female-old-upload').addEventListener('change', (e) => {
+                handleFileUpload(e.target.files[0], 'female', 'old');
+            });
+
+            document.getElementById('female-new-upload').addEventListener('change', (e) => {
+                handleFileUpload(e.target.files[0], 'female', 'new');
+            });
+        }
+
+        function handleFileUpload(file, section, type) {
+            if (!file) return;
+
+            Papa.parse(file, {
+                header: true,
+                skipEmptyLines: true,
+                complete: function(results) {
+                    if (results.errors.length > 0) {
+                        showStatus(section, 'Error parsing CSV file', 'error');
+                        return;
+                    }
+
+                    const students = results.data.map((row, index) => ({
+                        sno: index + 1,
+                        student: row.Student || '',
+                        roomNo: row.RoomNo || '',
+                        age: row.Age || '',
+                        city: row.City || '',
+                        cell: '',
+                        seat: row.Seat || ''
+                    }));
+
+                    if (type === 'old') {
+                        state[section].oldStudents = students;
+                    } else {
+                        state[section].newStudents = students;
+                    }
+
+                    showStatus(section, `${type === 'old' ? 'Old' : 'New'} students list uploaded successfully (${students.length} students)`, 'success');
+                    
+                    allocateCells(section);
+                }
+            });
+        }
+
+        function allocateCells(section) {
+            const sectionState = state[section];
+            const prefix = section === 'male' ? 'ATM' : 'ATF';
+            const oldCount = sectionState.config.oldCount;
+            const newCount = sectionState.config.newCount;
+            
+            // Available cells
+            const oldCells = [];
+            const newCells = [];
+            
+            // Old student cells
+            for (let i = 1; i <= oldCount; i++) {
+                const cellId = `${prefix}-${i}`;
+                if (!sectionState.unavailableCells.has(cellId)) {
+                    oldCells.push(cellId);
+                }
+            }
+            
+            // New student cells
+            for (let i = 1; i <= newCount; i++) {
+                const cellId = i.toString();
+                if (!sectionState.unavailableCells.has(cellId)) {
+                    newCells.push(cellId);
+                }
+            }
+
+            const allocations = [];
+            let cellIndex = 0;
+
+            // Allocate old students first to old cells, then new cells if needed
+            const availableCellsForOld = [...oldCells, ...newCells];
+            sectionState.oldStudents.forEach((student, index) => {
+                if (cellIndex < availableCellsForOld.length) {
+                    const allocation = {
+                        ...student,
+                        sno: index + 1,
+                        cellNo: availableCellsForOld[cellIndex],
+                        isOldStudent: true
+                    };
+                    allocations.push(allocation);
+                    cellIndex++;
+                }
+            });
+
+            // Allocate new students only to remaining new cells
+            const remainingNewCells = newCells.slice(Math.max(0, cellIndex - oldCells.length));
+            sectionState.newStudents.forEach((student, index) => {
+                if (index < remainingNewCells.length) {
+                    const allocation = {
+                        ...student,
+                        sno: index + 1,
+                        cellNo: remainingNewCells[index],
+                        isOldStudent: false
+                    };
+                    allocations.push(allocation);
+                }
+            });
+
+            sectionState.allocations = allocations;
+            
+            // Update cell visual state
+            updateCellVisuals(section);
+            
+            // Generate report
+            generateReport(section);
+            
+            // Show summary
+            showAllocationSummary(section);
+        }
+
+        function updateCellVisuals(section) {
+            const sectionState = state[section];
+            const allocatedCells = new Set(sectionState.allocations.map(a => a.cellNo));
+            
+            // Update all cells in this section
+            const cells = document.querySelectorAll(`[data-section="${section}"]`);
+            cells.forEach(cell => {
+                const cellId = cell.dataset.cellId;
+                if (allocatedCells.has(cellId)) {
+                    cell.classList.add('allocated');
+                    cell.classList.remove('unavailable');
+                } else {
+                    cell.classList.remove('allocated');
+                }
+            });
+        }
+
+        function generateReport(section) {
+            const sectionState = state[section];
+            const reportContainer = document.getElementById(`${section}-report`);
+            
+            if (sectionState.allocations.length === 0) {
+                reportContainer.innerHTML = '<p>No allocations to display</p>';
+                document.getElementById(`${section}-old-download`).disabled = true;
+                document.getElementById(`${section}-new-download`).disabled = true;
+                document.getElementById(`${section}-consolidated-download`).disabled = true;
+                return;
+            }
+
+            const table = document.createElement('table');
+            table.className = 'report-table';
+            
+            // Header
+            const headerRow = document.createElement('tr');
+            ['S.No.', 'Student Name', 'Cell No.', 'Room No.', 'Seat No.'].forEach(header => {
+                const th = document.createElement('th');
+                th.textContent = header;
+                headerRow.appendChild(th);
+            });
+            table.appendChild(headerRow);
+
+            // Data rows
+            sectionState.allocations.forEach(allocation => {
+                const row = document.createElement('tr');
+                [
+                    allocation.sno,
+                    allocation.student,
+                    allocation.cellNo,
+                    allocation.roomNo,
+                    allocation.seat
+                ].forEach(data => {
+                    const td = document.createElement('td');
+                    td.textContent = data;
+                    row.appendChild(td);
+                });
+                table.appendChild(row);
+            });
+
+            reportContainer.innerHTML = '';
+            reportContainer.appendChild(table);
+            
+            // Enable download buttons
+            document.getElementById(`${section}-old-download`).disabled = sectionState.allocations.filter(a => a.isOldStudent).length === 0;
+            document.getElementById(`${section}-new-download`).disabled = sectionState.allocations.filter(a => !a.isOldStudent).length === 0;
+            document.getElementById(`${section}-consolidated-download`).disabled = sectionState.allocations.length === 0;
+        }
+
+        function showAllocationSummary(section) {
+            const sectionState = state[section];
+            const summaryContainer = document.getElementById(`${section}-summary`);
+            
+            const totalOld = sectionState.oldStudents.length;
+            const totalNew = sectionState.newStudents.length;
+            const totalStudents = totalOld + totalNew;
+            const totalAllocated = sectionState.allocations.length;
+            const unallocated = totalStudents - totalAllocated;
+            
+            const prefix = section === 'male' ? 'ATM' : 'ATF';
+            const oldCellsUsed = sectionState.allocations.filter(a => a.cellNo.startsWith(prefix)).length;
+            const newCellsUsed = sectionState.allocations.filter(a => !a.cellNo.startsWith(prefix)).length;
+            
+            // Calculate total available cells
+            const oldCount = sectionState.config.oldCount;
+            const newCount = sectionState.config.newCount;
+            const unavailableOldCells = Array.from(sectionState.unavailableCells).filter(cell => cell.startsWith(prefix)).length;
+            const unavailableNewCells = Array.from(sectionState.unavailableCells).filter(cell => !cell.startsWith(prefix)).length;
+            const availableOldCells = oldCount - unavailableOldCells;
+            const availableNewCells = newCount - unavailableNewCells;
+            const totalAvailableCells = availableOldCells + availableNewCells;
+
+            summaryContainer.innerHTML = `
+                <div class="allocation-summary">
+                    <div class="summary-grid">
+                        <div class="summary-item">
+                            <span>Total Students:</span>
+                            <strong>${totalStudents}</strong>
+                        </div>
+                        <div class="summary-item">
+                            <span>Available Cells:</span>
+                            <strong>${totalAvailableCells}</strong>
+                        </div>
+                        <div class="summary-item">
+                            <span>Old Students:</span>
+                            <strong>${totalOld}</strong>
+                        </div>
+                        <div class="summary-item">
+                            <span>New Students:</span>
+                            <strong>${totalNew}</strong>
+                        </div>
+                        <div class="summary-item">
+                            <span>Successfully Allocated:</span>
+                            <strong>${totalAllocated}</strong>
+                        </div>
+                        <div class="summary-item">
+                            <span>Unallocated:</span>
+                            <strong style="color: ${unallocated > 0 ? '#e53e3e' : '#10b981'}">${unallocated}</strong>
+                        </div>
+                        <div class="summary-item">
+                            <span>${prefix} Cells Used:</span>
+                            <strong>${oldCellsUsed}/${oldCount}</strong>
+                        </div>
+                        <div class="summary-item">
+                            <span>Regular Cells Used:</span>
+                            <strong>${newCellsUsed}/${newCount}</strong>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function showStatus(section, message, type) {
+            const statusContainer = document.getElementById(`${section}-status`);
+            statusContainer.innerHTML = `<div class="status-message status-${type}">${message}</div>`;
+            
+            setTimeout(() => {
+                statusContainer.innerHTML = '';
+            }, 5000);
+        }
+
+        function showConfigStatus(section, message, type) {
+            const statusContainer = document.getElementById(`${section}-config-status`);
+            statusContainer.innerHTML = `<div class="status-message status-${type}">${message}</div>`;
+            
+            setTimeout(() => {
+                statusContainer.innerHTML = '';
+            }, 5000);
+        }
+
+        function downloadPDF(section, reportType) {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            
+            const sectionState = state[section];
+            let title = `${section.charAt(0).toUpperCase() + section.slice(1)} Students Pagoda Cell Allocation`;
+            let filename = `${section}_consolidated_cell_allocation.pdf`;
+            
+            // Adjust title and filename based on report type
+            if (reportType === 'old') {
+                title = `${section.charAt(0).toUpperCase() + section.slice(1)} Old Students Pagoda Cell Allocation`;
+                filename = `${section}_old_cell_allocation.pdf`;
+            } else if (reportType === 'new') {
+                title = `${section.charAt(0).toUpperCase() + section.slice(1)} New Students Pagoda Cell Allocation`;
+                filename = `${section}_new_cell_allocation.pdf`;
+            }
+            
+            // Filter allocations based on report type
+            let filteredAllocations = sectionState.allocations;
+            if (reportType === 'old') {
+                filteredAllocations = sectionState.allocations.filter(a => a.isOldStudent).map((a, index) => ({
+                    ...a,
+                    sno: index + 1
+                }));
+            } else if (reportType === 'new') {
+                filteredAllocations = sectionState.allocations.filter(a => !a.isOldStudent).map((a, index) => ({
+                    ...a,
+                    sno: index + 1
+                }));
+            } else {
+                filteredAllocations = sectionState.allocations.map((a, index) => ({
+                    ...a,
+                    sno: index + 1
+                }));
+            }
+            
+            // Get course dates
+            const startDate = document.getElementById('course-start-date').value;
+            const endDate = document.getElementById('course-end-date').value;
+            const schedule = startDate && endDate ? `Course Schedule: ${startDate} to ${endDate}` : 'Course Schedule: Not Specified';
+            
+            // Title (centered)
+            doc.setFontSize(18);
+            const titleWidth = doc.getTextWidth(title);
+            const pageWidth = doc.internal.pageSize.width;
+            doc.text(title, (pageWidth - titleWidth) / 2, 20);
+            
+            // Schedule (centered)
+            doc.setFontSize(12);
+            const scheduleWidth = doc.getTextWidth(schedule);
+            doc.text(schedule, (pageWidth - scheduleWidth) / 2, 30);
+            
+            // Table headers
+            const headers = ['S.No.', 'Student Name', 'Cell No.', 'Room No.', 'Seat No.'];
+            const startY = 40;
+            const rowHeight = 8;
+            const colWidths = [20, 50, 30, 30, 30];
+            const tableWidth = colWidths.reduce((a, b) => a + b, 0);
+            let currentY = startY;
+            
+            // Function to draw headers
+            function drawHeaders(y) {
+                doc.setFontSize(10);
+                doc.setFont(undefined, 'bold');
+                let currentX = 20;
+                headers.forEach((header, index) => {
+                    doc.text(header, currentX + 2, y + 6); // Padding for text
+                    currentX += colWidths[index];
+                });
+                // Draw header border
+                doc.setLineWidth(0.5);
+                doc.rect(20, y, tableWidth, rowHeight);
+                // Draw vertical lines for header cells
+                currentX = 20;
+                for (let i = 0; i < headers.length; i++) {
+                    doc.line(currentX, y, currentX, y + rowHeight);
+                    currentX += colWidths[i];
+                }
+                doc.line(currentX, y, currentX, y + rowHeight); // Rightmost border
+            }
+            
+            // Draw headers for first page
+            drawHeaders(currentY);
+            currentY += rowHeight;
+            
+            // Draw data
+            filteredAllocations.forEach((allocation, index) => {
+                if (currentY > 270) { // Adjust for page break
+                    doc.addPage();
+                    currentY = 20;
+                    drawHeaders(currentY);
+                    currentY += rowHeight;
+                }
+                
+                let currentX = 20;
+                const rowData = [
+                    allocation.sno.toString(),
+                    allocation.student,
+                    allocation.cellNo,
+                    allocation.roomNo,
+                    allocation.seat
+                ];
+                
+                doc.setFont(undefined, 'normal'); // Ensure normal font for data
+                rowData.forEach((data, colIndex) => {
+                    doc.text(data.toString(), currentX + 2, currentY + 6); // Padding for text
+                    currentX += colWidths[colIndex];
+                });
+                
+                // Draw row border
+                doc.rect(20, currentY, tableWidth, rowHeight);
+                // Draw vertical lines for data cells
+                currentX = 20;
+                for (let i = 0; i < headers.length; i++) {
+                    doc.line(currentX, currentY, currentX, currentY + rowHeight);
+                    currentX += colWidths[i];
+                }
+                doc.line(currentX, currentY, currentX, currentY + rowHeight); // Rightmost border
+                
+                currentY += rowHeight;
+            });
+            
+            // Download
+            doc.save(filename);
+        }
+
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeCells();
+            setupFileUploads();
+            
+            // Add input event listeners for real-time configuration updates
+            ['male', 'female'].forEach(section => {
+                const oldInput = document.getElementById(`${section}-old-count`);
+                const newInput = document.getElementById(`${section}-new-count`);
+                
+                oldInput.addEventListener('input', () => applyConfiguration(section));
+                newInput.addEventListener('input', () => applyConfiguration(section));
+            });
+        });
+    </script>
+
+<script src="https://static.app/js/static.js" type="text/javascript"></script>
+</body>
+</html>
